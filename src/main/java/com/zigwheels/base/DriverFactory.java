@@ -5,35 +5,46 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.edge.EdgeDriver;
 import org.openqa.selenium.edge.EdgeOptions;
+import org.openqa.selenium.remote.RemoteWebDriver;
+import java.net.URL;
+import java.net.MalformedURLException;
 
 public class DriverFactory {
 	private static ThreadLocal<WebDriver> tlDriver = new ThreadLocal<>();
 
-	public static synchronized void initDriver(String browser, boolean headless) {
-		WebDriver driver;
+	public static synchronized void initDriver(String browser, boolean headless, String executionMode) {
+		WebDriver driver = null;
 		String browserType = browser.toLowerCase();
+		String gridUrl = "http://localhost:4444/wd/hub"; // Change this to your Grid IP
 
-		switch (browserType) {
-		case "chrome":
-			ChromeOptions co = new ChromeOptions();
-			// Add window-size here!
-			co.addArguments("--disable-notifications", "--start-maximized");
-			if (headless)
-				co.addArguments("--headless=new");
-			driver = new ChromeDriver(co);
-			break;
+		try {
+			if (browserType.equals("chrome")) {
+				ChromeOptions co = new ChromeOptions();
+				co.addArguments("--disable-notifications", "--start-maximized");
+				if (headless) co.addArguments("--headless=new");
 
-		case "edge":
-			EdgeOptions eo = new EdgeOptions();
-			// Add window-size here!
-			eo.addArguments("--disable-notifications", "--start-maximized");
-			if (headless)
-				eo.addArguments("--headless=new");
-			driver = new EdgeDriver(eo);
-			break;
+				// Simple Switch: Remote vs Local
+				if (executionMode.equalsIgnoreCase("remote")) {
+					driver = new RemoteWebDriver(new URL(gridUrl), co);
+					driver.manage().window().maximize();
+				} else {
+					driver = new ChromeDriver(co);
+				}
 
-		default:
-			throw new IllegalArgumentException("Unsupported browser: " + browser);
+			} else if (browserType.equals("edge")) {
+				EdgeOptions eo = new EdgeOptions();
+				eo.addArguments("--disable-notifications", "--start-maximized");
+				if (headless) eo.addArguments("--headless=new");
+
+				if (executionMode.equalsIgnoreCase("remote")) {
+					driver = new RemoteWebDriver(new URL(gridUrl), eo);
+					driver.manage().window().maximize();
+				} else {
+					driver = new EdgeDriver(eo);
+				}
+			}
+		} catch (MalformedURLException e) {
+			System.out.println("Invalid Grid URL provided.");
 		}
 
 		tlDriver.set(driver);
@@ -44,9 +55,8 @@ public class DriverFactory {
 	}
 
 	public static synchronized void quitDriver() {
-		WebDriver driver = tlDriver.get();
-		if (driver != null) {
-			driver.quit();
+		if (getDriver() != null) {
+			getDriver().quit();
 			tlDriver.remove();
 		}
 	}

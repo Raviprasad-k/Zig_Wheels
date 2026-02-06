@@ -104,18 +104,20 @@ public class UsedCarsPage {
 	}
 
 	public String attemptViewSellerAndGetError(String phone) {
-		try {
-			// Use JavaScript click via POM element to bypass overlays
-			wait.until(ExpectedConditions.elementToBeClickable(contactSellerBtn));
-			((JavascriptExecutor) driver).executeScript("arguments[0].click();", contactSellerBtn);
+	    try {
+	        wait.until(ExpectedConditions.elementToBeClickable(contactSellerBtn));
+	        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", contactSellerBtn);
 
-			// Wait for modal input
-			wait.until(ExpectedConditions.visibilityOf(mobileInput)).sendKeys(phone);
+	        wait.until(ExpectedConditions.visibilityOf(mobileInput)).sendKeys(phone);
 
-			// Return error text
-			return wait.until(ExpectedConditions.visibilityOf(errorMessage)).getText();
-		} catch (Exception e) {
-			return "Error capture failed: " + e.getMessage();
-		}
+	        try {
+	            return wait.until(ExpectedConditions.visibilityOf(errorMessage)).getText();
+	        } catch (TimeoutException e) {
+	            return "No explicit error message found (modal likely blocked invalid input).";
+	        }
+	    } catch (Exception e) {
+	        return "Could not trigger seller details modal: " + e.getMessage();
+	    }
 	}
+
 }

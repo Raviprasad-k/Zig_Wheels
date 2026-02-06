@@ -16,7 +16,7 @@ import com.zigwheels.pages.UsedCarsPage;
 
 public class ZigWheelsScenariosTest extends BaseTest {
 	
-	@Test(priority = 7)
+	@Test(priority = 1)
 	public void scenario1_searchAndCompareCars() throws InterruptedException {
 		SearchComparisonPage comparePage = new SearchComparisonPage(driver, wait);
 		comparePage.searchCar("mercedes-benz");
@@ -37,8 +37,9 @@ public class ZigWheelsScenariosTest extends BaseTest {
 
 		PopularCarsPage page = new PopularCarsPage(driver);
 		List<List<String>> rows = page.scrapeNamesAndPrices();
-		excel.writeSheet("PopularCars", List.of("#", "Car Name", "Price"), rows);
-
+		if (!rows.isEmpty()) {
+	        excel.writeSheet("PopularCars", List.of("#", "Car Name", "Price"), rows);
+	    }
 		// This ensures the report shows "FAILED" if size is 0
 		Assert.assertTrue(rows.size() > 0, "No popular cars were found on the page!");
 	}
@@ -59,7 +60,7 @@ public class ZigWheelsScenariosTest extends BaseTest {
 	}
 
 	@Test(priority = 5)
-	public void scenario4_usedCarsChennaiSortAndValidate() {
+	public void scenario4_usedCarsChennaiSortAndValidate() throws InterruptedException {
 		HomePage home = new HomePage(driver);
 		home.openUsedCars();
 
@@ -69,8 +70,15 @@ public class ZigWheelsScenariosTest extends BaseTest {
 		captureStep("S4_Used cars_Page");
 		List<List<String>> rows = page.scrapeUsedCars();
 		excel.writeSheet("UsedCars_Chennai", List.of("#", "Car Name", "Price", "Fuel Type"), rows);
+		
+		String errorMsg = null;
+        errorMsg = page.attemptViewSellerAndGetError("9988777");
+        excel.writeSheet("UsedCars_Chennai_Error", List.of("Error Message"), List.of(List.of(errorMsg)));
+		
+		
+//		String errorMsg = page.attemptViewSellerAndGetError("987898");
+//        excel.writeSheet("UsedCars_Chennai_Error", List.of("Error Message"), List.of(List.of(errorMsg)));
 
-		String errorMsg = page.attemptViewSellerAndGetError("987898");
 		Assert.assertNotNull(errorMsg, "Error message for invalid login was not captured");
 	}
 

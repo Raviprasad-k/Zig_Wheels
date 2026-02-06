@@ -9,8 +9,8 @@
     <classes>
       <class name="com.zigwheels.tests.ZigWheelsScenariosTest">
         <methods>
-          <include name="scenario2_popularCars"/>
           <include name="resetPage"/>
+          <include name="scenario5_profileGoogleInvalidLogin"/>
           <include name="setUp"/>
           <include name="tearDown"/>
         </methods>

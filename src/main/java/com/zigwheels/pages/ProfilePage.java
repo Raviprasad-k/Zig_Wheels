@@ -1,8 +1,10 @@
 package com.zigwheels.pages;
 
 import java.time.Duration;
+import java.util.Set;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -19,15 +21,14 @@ public class ProfilePage {
 
 	public ProfilePage(WebDriver driver) {
 		this.driver = driver;
-		// Initialize wait once (10 seconds timeout)
-		this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+		this.wait = new WebDriverWait(driver, Duration.ofSeconds(15)); // Increased to 15 for Grid stability
 		PageFactory.initElements(driver, this);
 	}
 
 	@FindBy(xpath = "//div[@id='des_lIcon']")
 	private WebElement profileIcon;
 
-	@FindBy(xpath = "//div[@class='lgn-sc c-p txt-l pl-30 pr-30 googleSignIn']")
+	@FindBy(xpath = "//div[contains(@class,'googleSignIn')]")
 	private WebElement googleBtn;
 
 	public void openProfile() {
@@ -35,47 +36,58 @@ public class ProfilePage {
 	}
 
 	public String tryGoogleLoginInvalid() {
-		String original = driver.getWindowHandle();
+		String originalWindow = driver.getWindowHandle();
 		
-		// 1. Wait for Google button and click
+		// 1. VISIBILITY & CLICK LOGIC
 		try {
-			wait.until(ExpectedConditions.elementToBeClickable(googleBtn)).click();
+			// Ensure button is visible before clicking
+			wait.until(ExpectedConditions.visibilityOf(googleBtn));
+			googleBtn.click();
 		} catch (Exception e) {
-			WebElement alt = driver.findElement(By.xpath("//a[contains(.,'Google')]"));
-			alt.click();
+			// If standard click fails on Grid, use JavaScript 'Force' Click
+			System.out.println("Standard click failed, attempting JS click...");
+			((JavascriptExecutor) driver).executeScript("arguments[0].click();", googleBtn);
 		}
 
-		// 2. Wait for the new window to appear (replaces Thread.sleep)
-		wait.until(ExpectedConditions.numberOfWindowsToBe(2));
-
-		// Switch to child window
-		for (String h : driver.getWindowHandles()) {
-			if (!h.equals(original)) {
-				driver.switchTo().window(h);
-				break;
-			}
-		}
-
+		// 2. STABLE WINDOW SWITCHING
+		// Replaces strict 'numberOfWindowsToBe' with a more flexible check for Grid
 		try {
-			// 3. Wait for email input and enter data
-			WebElement email = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//input[@id='identifierId']")));
-			email.sendKeys(ConfigReader.get("email"));
-			email.sendKeys(Keys.ENTER);
+			wait.until(d -> d.getWindowHandles().size() > 1);
+			
+			Set<String> allWindows = driver.getWindowHandles();
+			for (String handle : allWindows) {
+				if (!handle.equals(originalWindow)) {
+					driver.switchTo().window(handle);
+					break;
+				}
+			}
+		} catch (Exception e) {
+			return "FAIL: Google popup did not appear within timeout.";
+		}
 
-			// 4. Wait for the error message to appear (replaces Thread.sleep)
-			WebElement err = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//div[@class='Ekjuhf Jj6Lae']")));
-			return err.getText().trim();
+		// 3. INTERACT WITH POPUP
+		try {
+			// Wait for email input
+			WebElement emailInput = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//input[@type='email']")));
+			emailInput.sendKeys(ConfigReader.get("email"), Keys.ENTER);
+
+			// 4. CAPTURE ERROR MESSAGE
+			// Using a more generic xpath to handle Google's dynamic UI updates
+			WebElement errorMessage = wait.until(ExpectedConditions.visibilityOfElementLocated(
+					By.xpath("//div[contains(@class,'Ekjuhf') or contains(@class,'Jj6Lae')]")));
+			
+			return errorMessage.getText().trim();
 
 		} catch (Exception e) {
 			return "Google login error not captured: " + e.getMessage();
 		} finally {
-			// Close child windows and return to main
-			for (String h : driver.getWindowHandles()) {
-				if (!h.equals(original)) {
-					driver.switchTo().window(h).close();
+			// 5. CLEANUP: Close any popups and return to main window
+			for (String handle : driver.getWindowHandles()) {
+				if (!handle.equals(originalWindow)) {
+					driver.switchTo().window(handle).close();
 				}
 			}
-			driver.switchTo().window(original);
+			driver.switchTo().window(originalWindow);
 		}
 	}
 }
